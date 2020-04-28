@@ -41,20 +41,19 @@ func find() (string, string, string) {
 }
 
 func download(url, filename string) error {
+	log.Printf("Downloading %s from %s\n", filename, url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 
-	// Create the file
 	out, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 
-	// Write the body to file
 	if _, err = io.Copy(out, resp.Body); err != nil {
 		return err
 	}
