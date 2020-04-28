@@ -20,8 +20,13 @@ func main() {
 	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", version, opsys, arch)
 	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", version, filename)
 	download(url, filename)
+	var tfPath string
+	flag.StringVar(tfPath, "tfPath", "", "path for terraform binary")
+	flag.Parse()
 
-	unzip(filename, "")
+	if err := unzip(filename, tfPath); err != nil {
+		log.Fatalln("Unable to unzip binary", err)
+	}
 
 	// terraform init and apply
 	cmd := exec.Command("terraform", "init")
@@ -60,63 +65,36 @@ func download(url, filename string) error {
 	return nil
 }
 
-// https://stackoverflow.com/a/24792688
+// unzip unzips the terraform binary. Assumes only one file inside the zip file.
+// Simplied version of https://stackoverflow.com/a/24792688 for the sake of the poc
 func unzip(src, dest string) error {
+	log.Printf("Unziping %s to %s\n", src, dest)
+
 	r, err := zip.OpenReader(src)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := r.Close(); err != nil {
-			panic(err)
-		}
-	}()
+	defer r.Close()
 
-	os.MkdirAll(dest, 0755)
-
-	// Closure to address file descriptors issue with all the deferred .Close() methods
-	extractAndWriteFile := func(f *zip.File) error {
+	for _, f := range r.File {
 		rc, err := f.Open()
 		if err != nil {
 			return err
 		}
-		defer func() {
-			if err := rc.Close(); err != nil {
-				panic(err)
-			}
-		}()
+		defer rc.Close()
 
 		path := filepath.Join(dest, f.Name)
-
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(path, f.Mode())
-		} else {
-			os.MkdirAll(filepath.Dir(path), f.Mode())
-			f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
-			if err != nil {
-				return err
-			}
-			defer func() {
-				if err := f.Close(); err != nil {
-					panic(err)
-				}
-			}()
-
-			_, err = io.Copy(f, rc)
-			if err != nil {
-				return err
-			}
+		fc, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
+		if err != nil {
+			return err
 		}
-		return nil
-	}
+		defer fc.Close()
 
-	for _, f := range r.File {
-		err := extractAndWriteFile(f)
+		_, err = io.Copy(fc, rc)
 		if err != nil {
 			return err
 		}
 	}
-
 	return nil
 }
 
