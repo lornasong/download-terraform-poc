@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -13,16 +14,16 @@ import (
 )
 
 func main() {
-	// find info on which binary to download
-	version, opsys, arch := find()
+	// parse info needed for binary
+	var version, opsys, arch, tfPath string
+	if err := parse(&version, &opsys, &arch, &tfPath); err != nil {
+		log.Fatalln("Unable to parse binary information", err)
+	}
 
 	// download and unzip binary
 	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", version, opsys, arch)
 	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", version, filename)
 	download(url, filename)
-	var tfPath string
-	flag.StringVar(tfPath, "tfPath", "", "path for terraform binary")
-	flag.Parse()
 
 	if err := unzip(filename, tfPath); err != nil {
 		log.Fatalln("Unable to unzip binary", err)
@@ -36,13 +37,33 @@ func main() {
 	execute(cmd)
 }
 
-func find() (string, string, string) {
-	// latest version: https://checkpoint-api.hashicorp.com/v1/check/terraform
+func parse(version, opsys, arch, tfPath *string) error {
+	flag.StringVar(version, "tfv", "", "terraform version")
+	flag.StringVar(opsys, "os", "", "operating system")
+	flag.StringVar(arch, "arch", "", "architecture")
+	flag.StringVar(tfPath, "tfPath", "", "path for terraform binary")
+	flag.Parse()
 
-	version := "0.12.24"
-	opsys := "darwin"
-	arch := "amd64"
-	return version, opsys, arch
+	switch *opsys {
+	case "darwin":
+	case "freebsd":
+	case "linux":
+	case "openbsd":
+	case "solaris":
+	case "windows":
+	default:
+		return fmt.Errorf("Unknown operating system %s", *opsys)
+	}
+
+	switch *arch {
+	case "amd64":
+	case "386":
+	case "arm":
+	default:
+		return fmt.Errorf("Unknown architecture %s", *arch)
+	}
+
+	return nil
 }
 
 func download(url, filename string) error {

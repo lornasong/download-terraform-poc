@@ -1,8 +1,11 @@
 PROJECT = $(shell basename $(CURDIR))
 
-TF_PATH ?= ""
+TF_VERSION = ""
+OS = ""
+ARCH := ""
+
 deps:
 	go mod download
 
 apply:
-	go build -o build/$(PROJECT) && ./build/$(PROJECT) -tfPath=$(TF_PATH)
+	go build -o build/$(PROJECT) && ./build/$(PROJECT) -tfPath=$(TF_PATH) -tfv=$(TF_VERSION) -os=$(OS) -arch=$(ARCH)
