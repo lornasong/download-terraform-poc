@@ -11,6 +11,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 func main() {
@@ -30,11 +32,15 @@ func main() {
 	}
 
 	// terraform init and apply
-	cmd := exec.Command("terraform", "init")
-	execute(cmd)
+	if err := execute("terraform", "init"); err != nil {
+		log.Fatalln("Failed to terraform init", err)
+	}
 
-	cmd = exec.Command("terraform", "apply", "-auto-approve=true")
-	execute(cmd)
+	if err := execute("terraform", "apply", "-auto-approve=true"); err != nil {
+		log.Fatalln("Failed to terraform apply", err)
+	}
+
+	log.Println("Changes applied successfully")
 }
 
 func parse(version, opsys, arch, tfPath *string) error {
@@ -119,44 +125,52 @@ func unzip(src, dest string) error {
 	return nil
 }
 
+// execute executes command and logs out to console. Reworked from:
 // https://blog.kowalczyk.info/article/wOYk/advanced-command-execution-in-go-with-osexec.html
-func execute(cmd *exec.Cmd) {
-
-	var stdout, stderr []byte
-	var errStdout, errStderr error
+// We have to do a little extra in order to stream logs in realish time vs. get a dump after execution.
+// We also have to do a little extra to capture error on why an execution failed.
+func execute(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()
-	err := cmd.Start()
-	if err != nil {
-		log.Fatalf("cmd.Start() failed with '%s'\n", err)
+
+	if err := cmd.Start(); err != nil {
+		return errors.Wrap(err, "Failed cmd.Start()")
 	}
 
-	// cmd.Wait() should be called only after we finish reading
-	// from stdoutIn and stderrIn.
+	// cmd.Wait() should be called only finishing reading from stdoutIn and stderrIn.
 	// wg ensures that we finish
+	var stdout, stderr []byte
+	var errStdout, errStderr error
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		stdout, errStdout = copyAndCapture(os.Stdout, stdoutIn)
+		stdout, errStdout = capture(os.Stdout, stdoutIn)
 		wg.Done()
 	}()
-
-	stderr, errStderr = copyAndCapture(os.Stderr, stderrIn)
-
+	stderr, errStderr = capture(os.Stderr, stderrIn)
 	wg.Wait()
 
-	err = cmd.Wait()
-	if err != nil {
-		log.Fatalf("cmd.Run() failed with %s\n", err)
+	if err := cmd.Wait(); err != nil {
+		return errors.Wrap(err, "Failed cmd.Wait()")
 	}
+
 	if errStdout != nil || errStderr != nil {
-		log.Fatal("failed to capture stdout or stderr\n")
+		return errors.New("Failed to capture stdout or stderr")
 	}
-	outStr, errStr := string(stdout), string(stderr)
-	fmt.Printf("\nout:\n%s\nerr:\n%s\n", outStr, errStr)
+
+	log.Println(string(stdout))
+
+	if len(stderr) > 0 {
+		log.Println(string(stderr))
+	}
+
+	return nil
 }
 
-func copyAndCapture(w io.Writer, r io.Reader) ([]byte, error) {
+// https://blog.kowalczyk.info/article/wOYk/advanced-command-execution-in-go-with-osexec.html
+func capture(w io.Writer, r io.Reader) ([]byte, error) {
 	var out []byte
 	buf := make([]byte, 1024, 1024)
 	for {
