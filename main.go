@@ -16,9 +16,12 @@ import (
 )
 
 func main() {
+	// flag for apply vs. destroy
+	var destroy bool
+
 	// parse info needed for binary
 	var version, opsys, arch, tfPath string
-	if err := parse(&version, &opsys, &arch, &tfPath); err != nil {
+	if err := parse(&version, &opsys, &arch, &tfPath, &destroy); err != nil {
 		log.Fatalln("Unable to parse binary information", err)
 	}
 
@@ -33,23 +36,34 @@ func main() {
 		log.Fatalln("Unable to unzip binary", err)
 	}
 
-	// terraform init and apply
+	// terraform init
 	if err := execute("terraform", "init"); err != nil {
 		log.Fatalln("Failed to terraform init", err)
 	}
 
-	if err := execute("terraform", "apply", "-auto-approve=true"); err != nil {
-		log.Fatalln("Failed to terraform apply", err)
+	// terraform apply/destroy
+	action := "apply"
+	if destroy {
+		action = "destroy"
+	}
+	if err := execute("terraform", action, "-auto-approve=true"); err != nil {
+		log.Fatalln("Failed to terraform apply/destroy", err)
 	}
 
-	log.Println("Changes applied successfully")
+	// finished
+	if destroy {
+		log.Println("Changes destroyed successfully")
+	} else {
+		log.Println("Changes applied successfully")
+	}
 }
 
-func parse(version, opsys, arch, tfPath *string) error {
-	flag.StringVar(version, "tfv", "", "terraform version")
+func parse(version, opsys, arch, tfPath *string, destroy *bool) error {
+	flag.StringVar(version, "tfv", "0.12.4", "terraform version")
 	flag.StringVar(opsys, "os", "", "operating system")
 	flag.StringVar(arch, "arch", "", "architecture")
 	flag.StringVar(tfPath, "tfPath", "", "path for terraform binary")
+	flag.BoolVar(destroy, "destroy", false, "destroy")
 	flag.Parse()
 
 	switch *opsys {
