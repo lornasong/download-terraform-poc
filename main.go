@@ -25,7 +25,9 @@ func main() {
 	// download and unzip binary
 	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", version, opsys, arch)
 	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", version, filename)
-	download(url, filename)
+	if err := download(url, filename); err != nil {
+		log.Fatalln("Unable to download binary zip", err)
+	}
 
 	if err := unzip(filename, tfPath); err != nil {
 		log.Fatalln("Unable to unzip binary", err)
@@ -74,6 +76,7 @@ func parse(version, opsys, arch, tfPath *string) error {
 
 func download(url, filename string) error {
 	log.Printf("Downloading %s from %s\n", filename, url)
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
