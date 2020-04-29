@@ -12,8 +12,8 @@ To download dependencies: `make deps`
 Edit Makefile variables that will ensure the right Terraform binary for your system is downloaded and where to place the binary.
 - TF_PATH: path to move the Terraform binary to
 - TF_VERSION: Terraform version to use
-- OS: Your system's operating system
-- ARCH := Your system's architecture
+- OS: your system's operating system
+- ARCH: your system's architecture
 
 To apply: `make apply`
 
