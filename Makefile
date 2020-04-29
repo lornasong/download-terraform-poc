@@ -1,8 +1,10 @@
 PROJECT = $(shell basename $(CURDIR))
 
-TF_VERSION = ""
-OS = ""
-ARCH := ""
+# Update the following variables:
+TF_PATH = ""
+TF_VERSION = "" # Latest version: https://www.terraform.io/downloads.html
+OS = "" # Options: darwin, freebsd, linux, openbsd, solaris, windows
+ARCH = "" # Options: amd64, 386, arm
 
 deps:
 	go mod download
