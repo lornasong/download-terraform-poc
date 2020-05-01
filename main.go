@@ -181,6 +181,10 @@ func execute(name string, args ...string) error {
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {
+		if len(stderr) > 0 {
+			retError := errors.New((string(stderr)))
+			err = errors.Wrap(retError, err.Error())
+		}
 		return errors.Wrap(err, "Failed cmd.Wait()")
 	}
 
@@ -188,10 +192,8 @@ func execute(name string, args ...string) error {
 		return errors.New("Failed to capture stdout or stderr")
 	}
 
-	log.Println(string(stdout))
-
 	if len(stderr) > 0 {
-		log.Println(string(stderr))
+		return errors.New((string(stderr)))
 	}
 
 	return nil
