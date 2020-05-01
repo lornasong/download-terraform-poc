@@ -15,19 +15,24 @@ import (
 	"github.com/pkg/errors"
 )
 
+// terraformVersion is a constant of the version of the terraform binary
+// to download and execute. We want to control this versioning to ensure compatibility
+// with modules, providers, etc
+const terraformVersion = "0.12.24"
+
 func main() {
 	// flag for apply vs. destroy
 	var destroy bool
 
 	// parse info needed for binary
-	var version, opsys, arch, tfPath string
-	if err := parse(&version, &opsys, &arch, &tfPath, &destroy); err != nil {
+	var opsys, arch, tfPath string
+	if err := parse(&opsys, &arch, &tfPath, &destroy); err != nil {
 		log.Fatalln("Unable to parse binary information", err)
 	}
 
 	// download and unzip binary
-	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", version, opsys, arch)
-	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", version, filename)
+	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", terraformVersion, opsys, arch)
+	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", terraformVersion, filename)
 	if err := download(url, filename); err != nil {
 		log.Fatalln("Unable to download binary zip", err)
 	}
@@ -58,8 +63,7 @@ func main() {
 	}
 }
 
-func parse(version, opsys, arch, tfPath *string, destroy *bool) error {
-	flag.StringVar(version, "tfv", "0.12.4", "terraform version")
+func parse(opsys, arch, tfPath *string, destroy *bool) error {
 	flag.StringVar(opsys, "os", "", "operating system")
 	flag.StringVar(arch, "arch", "", "architecture")
 	flag.StringVar(tfPath, "tfPath", "", "path for terraform binary")
