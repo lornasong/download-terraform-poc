@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"flag"
 	"fmt"
 	"io"
@@ -157,6 +158,7 @@ func unzip(src, dest string) error {
 // https://blog.kowalczyk.info/article/wOYk/advanced-command-execution-in-go-with-osexec.html
 // We have to do a little extra in order to stream logs in realish time vs. get a dump after execution.
 // We also have to do a little extra to capture error on why an execution failed.
+// Logs are standard-out-ed. Errors are captured and wrapped in an error object
 func execute(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	stdoutIn, _ := cmd.StdoutPipe()
@@ -168,39 +170,42 @@ func execute(name string, args ...string) error {
 
 	// cmd.Wait() should be called only finishing reading from stdoutIn and stderrIn.
 	// wg ensures that we finish
-	var stdout, stderr []byte
-	var errStdout, errStderr error
+	var errBuf bytes.Buffer
+	var errStdout, errErrBuf error
 
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		stdout, errStdout = capture(os.Stdout, stdoutIn)
+		errStdout = capture(os.Stdout, stdoutIn)
 		wg.Done()
 	}()
-	stderr, errStderr = capture(os.Stderr, stderrIn)
+
+	errErrBuf = capture(&errBuf, stderrIn)
 	wg.Wait()
 
 	if err := cmd.Wait(); err != nil {
-		if len(stderr) > 0 {
-			retError := errors.New((string(stderr)))
+		// see if we captured any error info
+		if errBuf.Len() > 0 {
+			retError := errors.New(errBuf.String())
 			err = errors.Wrap(retError, err.Error())
 		}
 		return errors.Wrap(err, "Failed cmd.Wait()")
 	}
 
-	if errStdout != nil || errStderr != nil {
-		return errors.New("Failed to capture stdout or stderr")
+	if errStdout != nil || errErrBuf != nil {
+		return errors.New("Failed to capture stdout or error buffer")
 	}
 
-	if len(stderr) > 0 {
-		return errors.New((string(stderr)))
+	if errBuf.Len() > 0 {
+		return errors.New(errBuf.String())
 	}
 
 	return nil
 }
 
 // https://blog.kowalczyk.info/article/wOYk/advanced-command-execution-in-go-with-osexec.html
-func capture(w io.Writer, r io.Reader) ([]byte, error) {
+// With some modifications
+func capture(w io.Writer, r io.Reader) error {
 	var out []byte
 	buf := make([]byte, 1024, 1024)
 	for {
@@ -208,9 +213,8 @@ func capture(w io.Writer, r io.Reader) ([]byte, error) {
 		if n > 0 {
 			d := buf[:n]
 			out = append(out, d...)
-			_, err := w.Write(d)
-			if err != nil {
-				return out, err
+			if _, err := w.Write(d); err != nil {
+				return err
 			}
 		}
 		if err != nil {
@@ -218,7 +222,7 @@ func capture(w io.Writer, r io.Reader) ([]byte, error) {
 			if err == io.EOF {
 				err = nil
 			}
-			return out, err
+			return err
 		}
 	}
 }
