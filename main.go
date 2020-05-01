@@ -38,7 +38,7 @@ func main() {
 	}
 
 	// terraform init
-	if err := execute("terraform", "init"); err != nil {
+	if err := execute("terraform", "init", "-input=false"); err != nil {
 		log.Fatalln("Failed to terraform init", err)
 	}
 
@@ -48,7 +48,7 @@ func main() {
 		action = "destroy"
 	}
 
-	if err := execute("terraform", action, "-auto-approve=true"); err != nil {
+	if err := execute("terraform", action, "-input=false", "-auto-approve"); err != nil {
 		log.Fatalln("Failed to terraform apply/destroy", err)
 	}
 
