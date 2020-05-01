@@ -30,19 +30,11 @@ func main() {
 	flag.BoolVar(&destroy, "destroy", false, "destroy")
 	flag.Parse()
 
-	// info needed for binary
-	opsys := runtime.GOOS
-	arch := runtime.GOARCH
-
-	// download and unzip binary
-	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", terraformVersion, opsys, arch)
-	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", terraformVersion, filename)
-	if err := download(url, filename); err != nil {
-		log.Fatalln("Unable to download binary zip", err)
-	}
-
-	if err := unzip(filename, tfPath); err != nil {
-		log.Fatalln("Unable to unzip binary", err)
+	if !terraformInstalled(tfPath) {
+		log.Println("Installing terraform")
+		if err := installTerraform(tfPath); err != nil {
+			log.Fatalln("Unable to install terraform", err)
+		}
 	}
 
 	// terraform init
@@ -55,6 +47,7 @@ func main() {
 	if destroy {
 		action = "destroy"
 	}
+
 	if err := execute("terraform", action, "-auto-approve=true"); err != nil {
 		log.Fatalln("Failed to terraform apply/destroy", err)
 	}
@@ -65,6 +58,45 @@ func main() {
 	} else {
 		log.Println("Changes applied successfully")
 	}
+}
+
+// Checks to see if terraform already exists at path
+// Note: at this point assuming if terraform already exists, that it is the
+// correct version, os, arch. User may have previously installed a version
+// that we don't support. May want to add handling in the future.
+func terraformInstalled(tfPath string) bool {
+	path, err := exec.LookPath("terraform")
+	if err != nil {
+		return false
+	}
+
+	tfPath = filepath.Join(tfPath, "terraform")
+	if tfPath == path {
+		return true
+	}
+
+	// have terraform at a different path
+	return false
+}
+
+// Install terraform: download file, unzip binary into path
+func installTerraform(tfPath string) error {
+	// info needed for binary
+	opsys := runtime.GOOS
+	arch := runtime.GOARCH
+
+	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", terraformVersion, opsys, arch)
+	url := fmt.Sprintf("https://releases.hashicorp.com/terraform/%s/%s", terraformVersion, filename)
+
+	if err := download(url, filename); err != nil {
+		return errors.Wrap(err, "Unable to download zip")
+	}
+
+	if err := unzip(filename, tfPath); err != nil {
+		return errors.Wrap(err, "Unable to unzip binary")
+	}
+
+	return nil
 }
 
 func download(url, filename string) error {
