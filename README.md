@@ -9,10 +9,7 @@ Requires: installing Terraform and Docker
 
 To download dependencies: `make deps`
 
-Edit Makefile variables that will ensure the right Terraform binary for your system is downloaded and where to place the binary.
-- TF_PATH: path to move the Terraform binary to
-- OS: your system's operating system
-- ARCH: your system's architecture
+Edit Makefile `TF_PATH` variable with the path that the Terraform binary should be moved to.
 
 To apply: `make apply`
 

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -23,12 +24,15 @@ const terraformVersion = "0.12.24"
 func main() {
 	// flag for apply vs. destroy
 	var destroy bool
+	// path for terraform binary
+	var tfPath string
+	flag.StringVar(&tfPath, "tfPath", "", "path for terraform binary")
+	flag.BoolVar(&destroy, "destroy", false, "destroy")
+	flag.Parse()
 
-	// parse info needed for binary
-	var opsys, arch, tfPath string
-	if err := parse(&opsys, &arch, &tfPath, &destroy); err != nil {
-		log.Fatalln("Unable to parse binary information", err)
-	}
+	// info needed for binary
+	opsys := runtime.GOOS
+	arch := runtime.GOARCH
 
 	// download and unzip binary
 	filename := fmt.Sprintf("terraform_%s_%s_%s.zip", terraformVersion, opsys, arch)
@@ -61,35 +65,6 @@ func main() {
 	} else {
 		log.Println("Changes applied successfully")
 	}
-}
-
-func parse(opsys, arch, tfPath *string, destroy *bool) error {
-	flag.StringVar(opsys, "os", "", "operating system")
-	flag.StringVar(arch, "arch", "", "architecture")
-	flag.StringVar(tfPath, "tfPath", "", "path for terraform binary")
-	flag.BoolVar(destroy, "destroy", false, "destroy")
-	flag.Parse()
-
-	switch *opsys {
-	case "darwin":
-	case "freebsd":
-	case "linux":
-	case "openbsd":
-	case "solaris":
-	case "windows":
-	default:
-		return fmt.Errorf("Unknown operating system %s", *opsys)
-	}
-
-	switch *arch {
-	case "amd64":
-	case "386":
-	case "arm":
-	default:
-		return fmt.Errorf("Unknown architecture %s", *arch)
-	}
-
-	return nil
 }
 
 func download(url, filename string) error {
